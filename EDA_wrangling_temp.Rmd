@@ -1,0 +1,613 @@
+---
+title: "Assignment 3"
+author: "Zoe Aiello"
+date: '2022-05-22'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+# install.packages("ggrepel")
+library(ggrepel)
+```
+
+# Question of interest: do higher income neighborhoods in the Phoenix metro area have cooler summer temperatures than lower-income neighborhoods?
+
+# Part 1: Importing and Data Wrangling
+```{r}
+# Importing median income data:
+income <- read_csv("source_1.csv")
+
+# Subset the variables of interest
+income <- subset(income, income$Fact == "Median household income (in 2020 dollars), 2016-2020" | income$Fact == "Population, Census, April 1, 2020" | income$Fact == "Hispanic or Latino, percent" | income$Fact == "Median value of owner-occupied housing units, 2016-2020" | income$Fact == "Persons in poverty, percent")
+
+# Get rid of "Notes" columns
+income <- income[ , colSums(is.na(income)) == 0]
+```
+
+
+```{r}
+# Importing Mean Temperature Data
+
+# June - September 2020 mean temp in tempe
+mean_tempe <- c(87.7, 92.6, 90.7, 85.6)
+
+# June - September 2020 mean temp in Litchfield park
+mean_litch <- c(90.6, 97.6, 97.6, 89.9)
+
+# June - September 2020 mean temp in Fountain park
+mean_fountain <- c(87.2, 93.9, 95.1, 87.7)
+
+# June - September 2020 mean temp in Mesa
+mean_mesa <- c(87.9, 95.2, 95.8, 87.8)
+
+# June - September 2020 mean temp in Phoenix
+mean_phoenix <- c(92.0, 98.9, 99.1, 91.5)
+
+# June - September 2020 mean temp in Apache Junction
+mean_apache <- c(86.0, 92.8, 94.4, 87.1)
+
+# Convert to dataframe
+mean_temps <- data.frame(mean_phoenix, mean_mesa, mean_litch, mean_fountain, mean_apache, mean_tempe)
+
+# Add a column to identify which month the temperature came from
+mean_temps$month <- c('June', 'July', 'Aug', 'Sep')
+
+# Change the column names so they're the same as the income data (for joining later)
+mean_colnames <- c("Phoenix city, Arizona", "Mesa city, Arizona", "Litchfield Park city, Arizona", "Fountain Hills town, Arizona", "Apache Junction city, Arizona", "Tempe city, Arizona", "Month")
+names(mean_temps) <- mean_colnames
+```
+
+
+```{r}
+# Data Wrangling/Joining the datasets
+
+# Move the location names to their own column and temp to its own column
+mean_temp_2 <- mean_temps %>% pivot_longer(`Phoenix city, Arizona`:`Mesa city, Arizona`:`Litchfield Park city, Arizona`:`Fountain Hills town, Arizona`:`Apache Junction city, Arizona`:`Tempe city, Arizona`, names_to = "location", values_to = "temperature")
+
+# move the city names to one column and their incomes to another column
+income_2 <- income %>% 
+  pivot_longer(`Litchfield Park city, Arizona`:`Fountain Hills town, Arizona`:`Phoenix city, Arizona`:`Apache Junction city, Arizona`:`Mesa city, Arizona`:`Tempe city, Arizona`, names_to = "location", values_to = "info")
+
+# column for each fact
+income_3 <- income_2 %>% pivot_wider(names_from = Fact, values_from = info)
+
+# Join the income and temp data
+joint_data <- full_join(as.data.frame(income_3), mean_temp_2, on = 'location')
+
+# Get each month:temperature combination in it's own column
+joint_data_2 <- joint_data %>% pivot_wider(names_from = Month, values_from = temperature)
+
+# Final Data Frame
+joint_data_2
+```
+
+# Part 2: Exploration
+
+```{r}
+# Quality Control Check
+joint_data_2
+```
+
+*Quality Control Check*
+The population values seem reasonable, Phoenix is the epicenter of the metro area so it makes sense that it has the largest population and as we move away from Phoenix, the population gets smaller and smaller. The largest hispanic population is in Phoenix and gets smaller and smaller as we move away from the epicenter. The most expensive houses are in Fountain Hills, then Litchfield park. Phoenix, Mesa, and Tempe have pretty comparable prices, Tempe being between 37k-42k more expensive than the others. Apache Junction has very low housing prices, more than 100k less than Mesa and 286k less than Fountain Hills. The median household income is fairly consistant with the housing prices in each area: Litchfield park having the highest, Fountain hills close behind it. Mesa, Tempe, and Phoenix are all around $60k/year and Apache Junction falls far behind at \$46k. Interestingly, Tempe has the highest poverty rate. This makes sense because they have the highest median home price of the three metro cities (Tempe, Mesa, and Phoenix) but their income is very comparable to the other two (about \$376 more than Phoenix and \$350 less than Mesa). Litchfield park and Fountain hills have very low poverty rates, Litchfield park being 2.6% more than Fountain hills presumably for the same reason as Tempe (higher home prices but lower income). Phoenix has the second highest poverty rate at about 16% and Mesa and Apache Junction have very similar rates (about 13%). Phoenix is the epicenter of the metro area so it does make sense for the poverty rate to be fairly high. As for the average temperatures in each city, Phoenix gets the hottest during the summer which makes sense because there's more buildings and pavement in the metro's epicenter. Below Phoenix is Litchfield park which is fairly close to Phoenix so that also makes sense although it appears to dispute my hypothesis about wealthier areas staying cooler in the summer. I may look at the percent change in temperature month over month to see if wealthier areas have more consistant temperatures. Tempe appears to say the coolest over the summer which may explain its high housing prices. Let's do some graphical explorations:
+
+```{r}
+ggplot(data = joint_data_2) +
+  geom_point(aes(x = June, y = `Median household income (in 2020 dollars), 2016-2020`)) +
+  geom_point(aes(x = July, y = `Median household income (in 2020 dollars), 2016-2020`), color = 'red') +
+  geom_point(aes(x = Aug, y = `Median household income (in 2020 dollars), 2016-2020`), color = 'blue') +
+  geom_point(aes(x = Sep, y = `Median household income (in 2020 dollars), 2016-2020`), color = 'green') +
+  ylab("Median Income") +
+  xlab("Temperature")
+```
+This graph doesn't work that well because there's so many colors it's hard to see what's going on. It looks like there might be a pattern for June and September so I may look at those individually and fit a trendline. 
+
+```{r}
+# ggplot(data = joint_data_2, aes(x = June, y = `Median household income (in 2020 dollars), 2016-2020`)) +
+  # geom_point() +
+  # geom_smooth(method = lm)
+
+# geom_smooth did not show up
+# In this forum 
+# https://stackoverflow.com/questions/35560433/geom-smooth-in-ggplot2-not-working-showing-up
+
+# someone had the same problem with dates and it was fixed when they changed the variable to datetype so I looked up how I could take out the dollar symbols:
+
+# https://www.r-bloggers.com/2019/08/dollar-signs-and-percentages-3-different-ways-to-convert-data-types-in-r/
+# joint_data_2$`Median household income (in 2020 dollars), 2016-2020` = as.numeric(gsub("\\$", "", joint_data_2$`Median household income (in 2020 dollars), 2016-2020`))
+
+# This made median household income all NAs, I also tried this:
+
+# joint_data_2$`Median household income (in 2020 dollars), 2016-2020` = as.numeric(gsub("$", "", joint_data_2$`Median household income (in 2020 dollars), 2016-2020`))
+
+# which did the same
+# and this:
+# joint_data_2$`Median household income (in 2020 dollars), 2016-2020` = as.factor(gsub("$", "", joint_data_2$`Median household income (in 2020 dollars), 2016-2020`))
+
+# More NAs
+# This kept the data but geom_smooth still didn't show up
+# joint_data_2$`Median household income (in 2020 dollars), 2016-2020` = as.factor(joint_data_2$`Median household income (in 2020 dollars), 2016-2020`)
+
+# i tried this:
+# https://www.tutorialspoint.com/how-to-remove-dollar-sign-in-r-data-frame
+# joint_data_2 <- lapply(joint_data_2,gsub,pattern="$",fixed=TRUE,replacement="")
+
+# which ended up turning my dataframe into a list so ggplot did not accept
+
+
+# ggplot(data = joint_data_2, aes(x = June, y = as.numeric(`Median household income (in 2020 dollars), 2016-2020`))) +
+  # geom_point() +
+  # geom_smooth(method = 'lm')
+
+# NA values introduced
+
+# https://www.statology.org/remove-dollar-sign-in-r/
+joint_data_2$`Median household income (in 2020 dollars), 2016-2020` = as.numeric(gsub("[\\$,]", "", joint_data_2$`Median household income (in 2020 dollars), 2016-2020`))
+
+# It's because there were also commas!
+
+ggplot(data = joint_data_2, aes(x = June, y = `Median household income (in 2020 dollars), 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Income") +
+  xlab("Temperature in June")
+
+ggplot(data = joint_data_2, aes(x = July, y = `Median household income (in 2020 dollars), 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3, direction = 'y', nudge_x = 1.5) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Income") +
+  xlab("Temperature in July")
+
+ggplot(data = joint_data_2, aes(x = Aug, y = `Median household income (in 2020 dollars), 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3, direction = 'y', nudge_y = 1000) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Income") +
+  xlab("Temperature in August")
+
+ggplot(data = joint_data_2, aes(x = Sep, y = `Median household income (in 2020 dollars), 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3, direction = 'y', nudge_x = 1) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Income") +
+  xlab("Temperature in September")
+```
+
+There does appear to be a relationship, however its the opposite of what I expected: lower median incomes are in areas with lower temperatures. This could be because people with lower median incomes live in more rural places. I also have a very small sample size so its hard to make inferences here. All of the trend lines seem similar in slope. I'm interested to see about the percent temperature change. 
+
+```{r}
+# new columns for percent change
+joint_data_2$perch_junjul = (joint_data_2$June/joint_data_2$July)*100
+joint_data_2$perch_julaug = (joint_data_2$July/joint_data_2$Aug)*100
+joint_data_2$perch_augsep = (joint_data_2$Aug/joint_data_2$Sep)*100
+
+ggplot(data = joint_data_2, aes(x = perch_junjul, y = `Median household income (in 2020 dollars), 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Income") +
+  xlab("Percent Change in Temperature From June to July")
+
+ggplot(data = joint_data_2, aes(x = perch_julaug, y = `Median household income (in 2020 dollars), 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Income") +
+  xlab("Percent Change in Temperature From July to August")
+
+ggplot(data = joint_data_2, aes(x = perch_augsep, y = `Median household income (in 2020 dollars), 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Income") +
+  xlab("Percent Change in Temperature From August to September")
+```
+
+Not much of a relationship here, it looks like there is one outlier but the rest of the points are pretty evenly distributed vertically around the same percent change. Let's explore some other variables:
+
+I'm sure that population has some relationship with heat. Places with higher populations probably have more pavement and buildings which makes the air hotter. 
+```{r}
+ggplot(data = joint_data_2, aes(x = June, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Population") +
+  xlab("Temperature in June")
+
+ggplot(data = joint_data_2, aes(x = July, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Population") +
+  xlab("Temperature in July")
+
+ggplot(data = joint_data_2, aes(x = Aug, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Population") +
+  xlab("Temperature in August")
+
+ggplot(data = joint_data_2, aes(x = Sep, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Population") +
+  xlab("Temperature in September")
+
+# the y axis had no order so I changed the population to numeric
+
+# ggplot(data = joint_data_2, aes(x = June, y = as.numeric(`Population, Census, April 1, 2020`))) +
+  # geom_point() +
+  # geom_smooth(method = 'lm', se = FALSE) +
+  # ylab("Population") +
+  # xlab("Temperature in June")
+
+# NAs were introduced by coersion
+# it's because there are commas
+# use the same method as before
+joint_data_2$`Population, Census, April 1, 2020` = as.numeric(gsub(",", "", joint_data_2$`Population, Census, April 1, 2020`))
+
+ggplot(data = joint_data_2, aes(x = June, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Population") +
+  xlab("Temperature in June")
+
+ggplot(data = joint_data_2, aes(x = July, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Population") +
+  xlab("Temperature in July")
+
+ggplot(data = joint_data_2, aes(x = Aug, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Population") +
+  xlab("Temperature in August")
+
+ggplot(data = joint_data_2, aes(x = Sep, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Population") +
+  xlab("Temperature in September")
+
+```
+Population has a pretty clear positive linear relationship with temperature. What about the percent change month over month?
+
+```{r}
+ggplot(data = joint_data_2, aes(x = perch_junjul, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  geom_label_repel(aes(label = location), size = 3) +
+  ylab("Population") +
+  xlab("Percent Change in Temperature From June to July")
+
+ggplot(data = joint_data_2, aes(x = perch_julaug, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  geom_label_repel(aes(label = location), size = 3) +
+  ylab("Population") +
+  xlab("Percent Change in Temperature From July to August")
+
+ggplot(data = joint_data_2, aes(x = perch_augsep, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  # xnudge, ynudge, hjust, vjust are not doing anything
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Popuation") +
+  xlab("Percent Change in Temperature From August to September")
+
+# Doesn't seem like theres much of a relationship, maybe because a lot of the populations are at low values, the outlier at over 150k may be essing with the trend line. Let's try the log of population
+```
+
+```{r}
+ggplot(data = joint_data_2, aes(x = perch_junjul, y = log(`Population, Census, April 1, 2020`))) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Log Population") +
+  xlab("Percent Change in Temperature From June to July")
+
+ggplot(data = joint_data_2, aes(x = perch_julaug, y = log(`Population, Census, April 1, 2020`))) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Log Population") +
+  xlab("Percent Change in Temperature From July to August")
+
+ggplot(data = joint_data_2, aes(x = perch_augsep, y = log(`Population, Census, April 1, 2020`))) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Log Popuation") +
+  xlab("Percent Change in Temperature From August to September")
+
+# Not much here, what if we took phoenix out?
+```
+
+```{r}
+# No phoenix
+no_phoe <- subset(joint_data_2, location != 'Phoenix city, Arizona')
+
+# plots
+ggplot(data = no_phoe, aes(x = perch_junjul, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Population") +
+  xlab("Percent Change in Temperature From June to July")
+
+ggplot(data = no_phoe, aes(x = perch_julaug, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Population") +
+  xlab("Percent Change in Temperature From July to August")
+
+ggplot(data = no_phoe, aes(x = perch_augsep, y = `Population, Census, April 1, 2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Popuation") +
+  xlab("Percent Change in Temperature From August to September")
+```
+
+Population has a pretty clear positive linear relationship with temperature but it doesn't seem to be related to the percent change in temperature month over month. Let's take a look at the other variables:
+
+```{r}
+# Percent Hispanic/Latino
+# take out percentage sign
+joint_data_2$`Hispanic or Latino, percent` = as.numeric(gsub("%", "", joint_data_2$`Hispanic or Latino, percent`))
+
+# plots
+ggplot(data = joint_data_2, aes(x = June, y = `Hispanic or Latino, percent`)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  geom_label_repel(aes(label = location), size = 3) +
+  ylab("Hispanic/Latino Population Percentage") +
+  xlab("Temperature in June")
+
+ggplot(data = joint_data_2, aes(x = July, y = `Hispanic or Latino, percent`)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  geom_label_repel(aes(label = location), size = 3) +
+  ylab("Hispanic/Latino Population Percentage") +
+  xlab("Temperature in July")
+
+ggplot(data = joint_data_2, aes(x = Aug, y = `Hispanic or Latino, percent`)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  geom_label_repel(aes(label = location), size = 3) +
+  ylab("Hispanic/Latino Population Percentage") +
+  xlab("Temperature in August")
+
+ggplot(data = joint_data_2, aes(x = Sep, y = `Hispanic or Latino, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3, nudge_x = 0.5) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Hispanic/Latino Population Percentage") +
+  xlab("Temperature in September")
+```
+
+Hispanic/Latino Population percentage appears to have a positive linear relationship with temperature. Let's investigate it's relationship to the percent temperature change month/month:
+```{r}
+ggplot(data = joint_data_2, aes(x = perch_junjul, y = `Hispanic or Latino, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3, nudge_y = 1) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Hispanic/Latino Population Percentage") +
+  xlab("Percent Change in Temperature From June to July")
+
+ggplot(data = joint_data_2, aes(x = perch_julaug, y = `Hispanic or Latino, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Hispanic/Latino Population Percentage") +
+  xlab("Percent Change in Temperature From July to August")
+
+ggplot(data = joint_data_2, aes(x = perch_augsep, y = `Hispanic or Latino, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3, nudge_y = 1) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Hispanic/Latino Population Percentage") +
+  xlab("Percent Change in Temperature From August to September")
+```
+
+There doesn't seem to be much of a relationship between the hispanic population percentage and the percent change in temperature month over month. Let's investigate the relationship between temperature and poverty percentage:
+
+```{r}
+# remove the % sign
+joint_data_2$`Persons in poverty, percent` = as.numeric(gsub("%", "", joint_data_2$`Persons in poverty, percent`))
+
+# plots
+ggplot(data = joint_data_2, aes(x = June, y = `Persons in poverty, percent`)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  geom_label_repel(aes(label = location), size = 3) +
+  ylab("Percentage in Poverty") +
+  xlab("Temperature in June")
+
+ggplot(data = joint_data_2, aes(x = July, y = `Persons in poverty, percent`)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  geom_label_repel(aes(label = location), size = 3) +
+  ylab("Percentage in Poverty") +
+  xlab("Temperature in July")
+
+ggplot(data = joint_data_2, aes(x = Aug, y = `Persons in poverty, percent`)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  geom_label_repel(aes(label = location), size = 3) +
+  ylab("Percentage in Poverty") +
+  xlab("Temperature in August")
+
+ggplot(data = joint_data_2, aes(x = Sep, y = `Persons in poverty, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Percentage in Poverty") +
+  xlab("Temperature in September")
+```
+
+Temperatures in June, July, and September don't seem to have a relationship with poverty percentage. Temperatures in August are less clear: it appears that temperatures in August have a negative linear relationship with poverty percentage. It's hard to tell because the residuals are so large. Since the other months appear to have no relationship, I'd say that there's no relationship here either. What about the percent change in temperature month over month?
+
+```{r}
+ggplot(data = joint_data_2, aes(x = perch_junjul, y = `Persons in poverty, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3, nudge_x = 0.2, nudge_y = 1.6) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Percentage in Poverty") +
+  xlab("Percent Change in Temperature From June to July")
+
+ggplot(data = joint_data_2, aes(x = perch_julaug, y = `Persons in poverty, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3, nudge_x = 0.2, nudge_y = 1.6) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Percentage in Poverty") +
+  xlab("Percent Change in Temperature From July to August")
+
+ggplot(data = joint_data_2, aes(x = perch_augsep, y = `Persons in poverty, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3, nudge_x = 0.2, nudge_y = 1.6) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Percentage in Poverty") +
+  xlab("Percent Change in Temperature From August to September")
+
+```
+
+There appears to be sone strong relationships here: June/July and July/August have a positive linear relationship with poverty percentage and August/September have a negative linear relationship with poverty percentage.However, this may be because of Tempe which appears to be far away from the other datapoints in all graphs besides maybe the July to August one. Let's take another look at this data without Tempe:
+
+```{r}
+# Remove tempe
+no_tempe <- subset(joint_data_2, location != 'Tempe city, Arizona')
+
+# Plot
+ggplot(data = no_tempe, aes(x = perch_junjul, y = `Persons in poverty, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Percentage in Poverty") +
+  xlab("Percent Change in Temperature From June to July")
+
+ggplot(data = no_tempe, aes(x = perch_julaug, y = `Persons in poverty, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Percentage in Poverty") +
+  xlab("Percent Change in Temperature From July to August")
+
+ggplot(data = no_tempe, aes(x = perch_augsep, y = `Persons in poverty, percent`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Percentage in Poverty") +
+  xlab("Percent Change in Temperature From August to September")
+
+```
+
+The other locations don't appear to hold a relationship between poverty and percent temperature change. 
+
+The last variable we'll explore is median housing price:
+
+```{r}
+joint_data_2$`Median value of owner-occupied housing units, 2016-2020` = as.numeric(gsub("[\\$,]", "", joint_data_2$`Median value of owner-occupied housing units, 2016-2020`))
+
+ggplot(data = joint_data_2, aes(x = June, y = `Median value of owner-occupied housing units, 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median House Value") +
+  xlab("Temperature in June")
+
+ggplot(data = joint_data_2, aes(x = July, y = `Median value of owner-occupied housing units, 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median House Value") +
+  xlab("Temperature in July")
+
+ggplot(data = joint_data_2, aes(x = Aug, y = `Median value of owner-occupied housing units, 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median House Value") +
+  xlab("Temperature in August")
+
+ggplot(data = joint_data_2, aes(x = Sep, y = `Median value of owner-occupied housing units, 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median House Value") +
+  xlab("Temperature in September")
+
+```
+
+I'm seeing a fairly random distribution of temperatures for each housing value. Let's investigate its relationship with percent temperature changes month over month:
+
+```{r}
+ggplot(data = joint_data_2, aes(x = perch_junjul, y = `Median value of owner-occupied housing units, 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Housing Value") +
+  xlab("Percent Change in Temperature From June to July")
+
+ggplot(data = joint_data_2, aes(x = perch_julaug, y = `Median value of owner-occupied housing units, 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Housing Value") +
+  xlab("Percent Change in Temperature From July to August")
+
+ggplot(data = joint_data_2, aes(x = perch_augsep, y = `Median value of owner-occupied housing units, 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Housing Value") +
+  xlab("Percent Change in Temperature From August to September")
+```
+
+Not much here either. Tempe could be removed because it appears to be a bit of an outlier althoguh I don't think that will change things:
+
+```{r}
+ggplot(data = no_tempe, aes(x = perch_junjul, y = `Median value of owner-occupied housing units, 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Housing Value") +
+  xlab("Percent Change in Temperature From June to July")
+
+ggplot(data = no_tempe, aes(x = perch_julaug, y = `Median value of owner-occupied housing units, 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Housing Value") +
+  xlab("Percent Change in Temperature From July to August")
+
+ggplot(data = no_tempe, aes(x = perch_augsep, y = `Median value of owner-occupied housing units, 2016-2020`)) +
+  geom_point() +
+  geom_label_repel(aes(label = location), size = 3) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  ylab("Median Housing Value") +
+  xlab("Percent Change in Temperature From August to September")
+
+```
+
+As I suspected, it didn't change things much. There may be a positive linear relationship here but I don't think it's anything to get excited about. It may be interesting to investigate how year over year temperature change differs with wealth/poverty/location but I'd have to go back to the site and see if I could find that data (surprisingly histogical temperature data was difficult to find). We might also investigate non-summer temperatures. I would also like to see the different explanatory variables relationships with each other. I may investigate other variables that were avaliable in the .csv file I downloaded. 
+
+Overall Hispanic/Latino population percentages seem to be positively correlated with temperature, as well as population (although that may be due to Phoenix as an outlier). Additionally, there does appear to be a relationship between median income and temperature, however its the opposite of what I expected: lower median incomes are in areas with lower temperatures. This is also opposite of the literature that I've read. My explanation is that the temperature data from the literature was taken on the ground in those cities and the historical temperature data that I have was recorded at airports or other places that aren't necessarily representative of the temperature in the city. 
+
+
+
+
+

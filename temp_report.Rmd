@@ -1,0 +1,48 @@
+---
+title: "Assignment 3 Report"
+author: "Zoe Aiello"
+date: '2022-05-22'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+There are two datasets: one for general demographic data for 6 Phoenix, AZ metro cities from the Census Bureau, and one for average temperature from June-September in those cities from NOAA. Severe weather as a result of climate change disproportionately affects those of lower-income status. My question of interest is whether higher income neighborhoods in the Phoenix metro area have cooler summer temperatures than lower-income neighborhoods. I will be investigating the relationship between temperature and median household income, median value of homes in the area, percent of population in poverty, population, and hispanic/latino population.
+
+Phoenix has the largest population out of all the cities which makes sense because it is the epicenter of the metro area. Phoenix also has the largest hispanic population. The most expensive houses are in Litchfield Park and Fountain Hills, they also have the highest income and lowest poverty rates. Tempe has the highest poverty rate which makes sense because while its median income is comparable to Phoenix and Mesa, it's housing prices are much higher.
+
+## Three Interesting Findings
+
+### The relationship between temperature and median household income was the opposite of my expectations.
+
+Interestingly, for all summer months, median income was positively correlated with temperature which was the opposite of my suspicion and the literature I've read. This may be because researchers would be using their own instruments to get many measurements of the air temperature around the city whereas historical data like I'm using probably comes from the airport or another measurement location that isn't necessarily representative of the temperature on the ground. Additionally, this relationship occur because people with lower median incomes live in more rural places which tend to have less concrete and buildings. Lastly, my sample size is small so it's difficult to make inference here.
+
+![](images/Screen%20Shot%202022-05-22%20at%204.48.32%20PM.png)
+
+![](images/Screen%20Shot%202022-05-22%20at%204.48.24%20PM.png)
+
+![](images/Screen%20Shot%202022-05-22%20at%204.48.15%20PM.png)
+
+![](images/Screen%20Shot%202022-05-22%20at%204.48.01%20PM.png)
+
+### The percent hispanic/latino in the population seemed to be positively correlated with temperature
+
+This was interesting to me because higher temperatures were not correlated with lower income and the highest hispanic population was in Phoenix which had one of the lowest incomes. I think another interesting investigation would be percent hispanic/latino vs. median household income. I would also like to investigate relationships with other racial groups. The .csv file from the census bureau includes asian/pacific islander, white, and black demographics.
+
+![](images/Screen%20Shot%202022-05-22%20at%204.57.49%20PM.png)
+
+![](images/Screen%20Shot%202022-05-22%20at%204.57.56%20PM.png)
+
+![](images/Screen%20Shot%202022-05-22%20at%204.58.05%20PM.png)
+
+![](images/Screen%20Shot%202022-05-22%20at%204.58.12%20PM.png)
+
+## There was virtually no relationship between percent poverty and temperature
+
+This was very surprising to me as I've read many articles that say lower-income neighborhoods are subject to the highest temperatures in the phoenix metro. As I've discussed, this may be due to the different temperature measurement techniques used by independent researchers and NOAA. Additionally, I may have to look at year over year changes in temperature at different parts of the city to see the dramatic changes that have been induced by climate change. Unfortunately, it is very difficult to find historical temperature data online but I can try to look for it because I am interested in the topic. It might be interesting to investigate how tree cover varies between neighborhoods of different wealth status' because trees keep neighborhoods cool and energy costs low. I may also need to investigate non-summer temperatures, it could be that there isn't much of a relationship for the most extreme months but that the relationship is more visible when viewing temperatures for the whole year.
+
+![](images/Screen%20Shot%202022-05-22%20at%205.04.08%20PM.png)
